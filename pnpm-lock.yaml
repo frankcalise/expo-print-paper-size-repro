@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   expo-print@58.0.8:
-    hash: bd5a839c01134923c9c4f583eb0f4f28e3440db4344b65f05bf0837e9cbf9819
+    hash: 01fe9514961b6843c43225a2f235f22c8530a29a6fd51242a259d9b59c90fa9e
     path: patches/expo-print@58.0.8.patch
 
 importers:
@@ -18,7 +18,7 @@ importers:
         version: 58.0.23(@babel/core@7.29.13)(@expo/dom-webview@58.0.2)(react-native@0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
       expo-print:
         specifier: 58.0.8
-        version: 58.0.8(patch_hash=bd5a839c01134923c9c4f583eb0f4f28e3440db4344b65f05bf0837e9cbf9819)(expo@58.0.23)(react-native@0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0))
+        version: 58.0.8(patch_hash=01fe9514961b6843c43225a2f235f22c8530a29a6fd51242a259d9b59c90fa9e)(expo@58.0.23)(react-native@0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0))
       expo-status-bar:
         specifier: ~58.0.4
         version: 58.0.4(expo@58.0.23)(react-native@0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
@@ -3558,7 +3558,7 @@ snapshots:
       '@expo/modules-macros-win32-arm64': 0.29.0
       '@expo/modules-macros-win32-x64': 0.29.0
 
-  expo-print@58.0.8(patch_hash=bd5a839c01134923c9c4f583eb0f4f28e3440db4344b65f05bf0837e9cbf9819)(expo@58.0.23)(react-native@0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0)):
+  expo-print@58.0.8(patch_hash=01fe9514961b6843c43225a2f235f22c8530a29a6fd51242a259d9b59c90fa9e)(expo@58.0.23)(react-native@0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0)):
     dependencies:
       expo: 58.0.23(@babel/core@7.29.13)(@expo/dom-webview@58.0.2)(react-native@0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
       react-native: 0.88.1(@babel/core@7.29.13)(@types/react@19.3.0)(react@19.3.0)

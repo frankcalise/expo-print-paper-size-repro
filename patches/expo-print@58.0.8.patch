@@ -1,5 +1,16 @@
+diff --git a/build/Print.d.ts b/build/Print.d.ts
+index a3f3b327d4ae1f0ad163c3c2709c6d135fb3495b..7ccdb74fe33231fa236eca598b0367dc019b6ec7 100644
+--- a/build/Print.d.ts
++++ b/build/Print.d.ts
+@@ -1,5 +1,5 @@
+ import type { FilePrintOptions, FilePrintResult, OrientationType, PrintOptions, Printer } from './Print.types';
+-export type { FilePrintOptions, FilePrintResult, OrientationType, PageMargins, PrintOptions, Printer, } from './Print.types';
++export type { FilePrintOptions, FilePrintResult, OrientationType, PageMargins, PaperSize, PrintOptions, Printer, } from './Print.types';
+ /**
+  * The orientation of the printed content.
+  */
 diff --git a/build/Print.types.d.ts b/build/Print.types.d.ts
-index 3ed67e0551fd380841b50be363801c526c194c7f..23dbbd1b044b0d868e24aa677efd1c9cdb5773c1 100644
+index 3ed67e0551fd380841b50be363801c526c194c7f..fa9d79a7c7d6ebe411430c4cdf8e92601628cf2d 100644
 --- a/build/Print.types.d.ts
 +++ b/build/Print.types.d.ts
 @@ -52,6 +52,20 @@ export type PrintOptions = {
@@ -7,22 +18,39 @@ index 3ed67e0551fd380841b50be363801c526c194c7f..23dbbd1b044b0d868e24aa677efd1c9c
       */
      margins?: PageMargins;
 +    /**
-+     * Paper size, in points (1/72 inch), that the print dialog prefers. When the user selects a
-+     * printer, the dialog selects the printer's paper that best fits this size, with
++     * Paper size, in points (1/72 inch), that the print job prefers. The job selects the printer's
++     * paper that best fits this size, with
 +     * [`UIPrintPaper.bestPaper(forPageSize:withPapersFrom:)`](https://developer.apple.com/documentation/uikit/uiprintpaper/bestpaper(forpagesize:withpapersfrom:)).
++     * In the print dialog, this happens when the user selects a printer. With `printerUrl`, the job
++     * prints on that paper without the dialog.
 +     * For example, `{ width: 432, height: 288 }` selects 4 x 6 inch paper on a printer that reports
 +     * it. The order of `width` and `height` does not matter. The page still scales to fit the
-+     * selected paper, and the user can still select a different paper. Before a printer is selected,
-+     * or when this option is not set, the system selects the paper.
++     * selected paper. The user can still select a different paper. The system selects the paper
++     * before the user selects a printer, after the user switches to another printer, or when this
++     * option is not set.
 +     * @platform ios
 +     */
-+    preferredPaperSize?: {
-+        width: number;
-+        height: number;
-+    };
++    preferredPaperSize?: PaperSize;
  };
  export type Printer = {
      /**
+@@ -76,6 +90,16 @@ export type PageMargins = {
+     bottom: number;
+     left: number;
+ };
++export type PaperSize = {
++    /**
++     * Paper width in points (1/72 inch).
++     */
++    width: number;
++    /**
++     * Paper height in points (1/72 inch).
++     */
++    height: number;
++};
+ export type FilePrintOptions = {
+     /**
+      * HTML string to print into PDF file.
 diff --git a/ios/ExpoPrintModule.swift b/ios/ExpoPrintModule.swift
 index b0da023ff58d7eab424ecde51eced07a28892ae5..f68499f25036afaea4053d2d32f9784c26cb1334 100644
 --- a/ios/ExpoPrintModule.swift
@@ -50,26 +78,36 @@ index b0da023ff58d7eab424ecde51eced07a28892ae5..f68499f25036afaea4053d2d32f9784c
 +  }
 +}
 diff --git a/ios/ExpoPrintWithPrinter.swift b/ios/ExpoPrintWithPrinter.swift
-index 981c9c0d1937e5ed7e55bbe9de1b28526d7d3970..e294415355ee2cfa11231d3f4ad9e39bf440b530 100644
+index 981c9c0d1937e5ed7e55bbe9de1b28526d7d3970..e2953e3434f31af7385abdfdb9d7d1332a32bee9 100644
 --- a/ios/ExpoPrintWithPrinter.swift
 +++ b/ios/ExpoPrintWithPrinter.swift
-@@ -4,6 +4,7 @@ public class ExpoPrintWithPrinter {
-   var renderTasks: [ExpoWKPDFRenderer] = []
-   var cachedPrinters: [String: UIPrinter] = [:]
-   let delegate: ExpoPrintModuleDelegate
-+  var paperDelegate: ExpoPrintPaperDelegate?
-   let printURLSession = URLSession(configuration: .default)
-   var dataTask: URLSessionDataTask?
+@@ -81,10 +81,15 @@ public class ExpoPrintWithPrinter {
+       return
+     }
  
-@@ -123,7 +124,10 @@ public class ExpoPrintWithPrinter {
-   private func makePrintInteractionController(options: PrintOptions) -> UIPrintInteractionController {
+-    let printInteractionController = makePrintInteractionController(options: options)
++    let paperDelegate = options.preferredPaperSize.map {
++      ExpoPrintPaperDelegate(paperSize: CGSize(width: $0.width, height: $0.height), fallback: self.delegate)
++    }
++    let printInteractionController = makePrintInteractionController(options: options, delegate: paperDelegate ?? self.delegate)
+     printInteractionController.printingItem = printingData
+ 
+     let completionHandler = { (_: UIPrintInteractionController, completed: Bool, error: Error?) in
++      // The controller holds its delegate weakly, so this job's delegate lives as long as the job.
++      withExtendedLifetime(paperDelegate) {}
+       if error != nil {
+         promise.reject(PrintingJobFailedException(error?.localizedDescription))
+       }
+@@ -120,10 +125,10 @@ public class ExpoPrintWithPrinter {
+     }
+   }
+ 
+-  private func makePrintInteractionController(options: PrintOptions) -> UIPrintInteractionController {
++  private func makePrintInteractionController(options: PrintOptions, delegate: ExpoPrintModuleDelegate) -> UIPrintInteractionController {
      let uri = options.uri ?? ""
      let printInteractionController = UIPrintInteractionController()
 -    printInteractionController.delegate = self.delegate
-+    paperDelegate = options.preferredPaperSize.map {
-+      ExpoPrintPaperDelegate(paperSize: CGSize(width: $0.width, height: $0.height), fallback: self.delegate)
-+    }
-+    printInteractionController.delegate = paperDelegate ?? self.delegate
++    printInteractionController.delegate = delegate
  
      let printInfo = UIPrintInfo.printInfo()
      printInfo.outputType = UIPrintInfo.OutputType.general
@@ -102,25 +140,59 @@ index 340e9b0c4e384feafffdbd2db878ed5db0b2403d..310c6f7ae1c44a393f6ab7dddf694758
    let kLetterPaperSize = CGSize(width: 612, height: 792)
  
    func toPageSize() -> CGSize {
+diff --git a/src/Print.ts b/src/Print.ts
+index ca8fe6ed84827ee21f6779bb3a10b00753719e4a..1633417b2cf847c2291327a18325be736393d81f 100644
+--- a/src/Print.ts
++++ b/src/Print.ts
+@@ -15,6 +15,7 @@ export type {
+   FilePrintResult,
+   OrientationType,
+   PageMargins,
++  PaperSize,
+   PrintOptions,
+   Printer,
+ } from './Print.types';
 diff --git a/src/Print.types.ts b/src/Print.types.ts
-index 800a1e01a009b30a3bfc2eea3fac848f64908783..9033a4eb40f60c535331f3f2d97ecd8310235e9b 100644
+index 800a1e01a009b30a3bfc2eea3fac848f64908783..c5417d7bbfef6d91de29b6bef00bdd3331a7ea84 100644
 --- a/src/Print.types.ts
 +++ b/src/Print.types.ts
-@@ -53,6 +53,17 @@ export type PrintOptions = {
+@@ -53,6 +53,20 @@ export type PrintOptions = {
     * @platform ios
     */
    margins?: PageMargins;
 +  /**
-+   * Paper size, in points (1/72 inch), that the print dialog prefers. When the user selects a
-+   * printer, the dialog selects the printer's paper that best fits this size, with
++   * Paper size, in points (1/72 inch), that the print job prefers. The job selects the printer's
++   * paper that best fits this size, with
 +   * [`UIPrintPaper.bestPaper(forPageSize:withPapersFrom:)`](https://developer.apple.com/documentation/uikit/uiprintpaper/bestpaper(forpagesize:withpapersfrom:)).
++   * In the print dialog, this happens when the user selects a printer. With `printerUrl`, the job
++   * prints on that paper without the dialog.
 +   * For example, `{ width: 432, height: 288 }` selects 4 x 6 inch paper on a printer that reports
 +   * it. The order of `width` and `height` does not matter. The page still scales to fit the
-+   * selected paper, and the user can still select a different paper. Before a printer is selected,
-+   * or when this option is not set, the system selects the paper.
++   * selected paper. The user can still select a different paper. The system selects the paper
++   * before the user selects a printer, after the user switches to another printer, or when this
++   * option is not set.
 +   * @platform ios
 +   */
-+  preferredPaperSize?: { width: number; height: number };
++  preferredPaperSize?: PaperSize;
  };
  
  // @needsAudit
+@@ -84,6 +98,18 @@ export type PageMargins = {
+   left: number;
+ };
+ 
++// @needsAudit
++export type PaperSize = {
++  /**
++   * Paper width in points (1/72 inch).
++   */
++  width: number;
++  /**
++   * Paper height in points (1/72 inch).
++   */
++  height: number;
++};
++
+ // @docsMissing
+ export type FilePrintOptions = {
+   /**
