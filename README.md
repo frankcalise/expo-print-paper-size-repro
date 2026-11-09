@@ -4,7 +4,7 @@ On iOS, `Print.printAsync` lets UIKit pick the paper. UIKit picks the printer's 
 
 The proposed change adds an opt-in `preferredPaperSize: { width, height }` option, in points. When the user selects a printer, the print dialog preselects that printer's paper that best fits the size, such as 4 x 6 inches.
 
-Upstream PR: TODO
+Upstream PR: https://github.com/expo/expo/pull/53218
 
 ## Setup
 
